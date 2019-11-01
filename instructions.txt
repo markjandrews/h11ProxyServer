@@ -1,0 +1,5 @@
+py -3.6 -m venv venv 
+venv\Scripts\activate 
+py -m pip install pip --upgrade
+py -m pip install --upgrade --no-index -r requirements.txt -f vendor
+
