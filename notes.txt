@@ -1,0 +1,43 @@
+Notes
+-----
+b'CONNECT github.com:443 HTTP/1.1\r\nHost: github.com:443\r\nUser-Agent: git/2.17.1\r\nProxy-Connection: Keep-Alive\r\n\r\n
+b'GET /markjandrews/yarsf2wav.git/info/refs?service=git-upload-pack HTTP/1.1\r\nHost: github.com\r\nUser-Agent: git/2.17.1\r\nAccept: */*\r\nAccept-Encoding: gzip\r\nAccept-Language: C, *;q=0.9\r\nPragma: no-cache\r\n\r\n'
+Request(method=b'GET', target=b'/markjandrews/yarsf2wav.git/info/refs?service=git-upload-pack', headers=[(b'host', b'github.com'), (b'user-agent', b'git/2.17.1'), (b'accept', b'*/*'), (b'accept-encoding', b'gzip'), (b'accept-language', b'C, *;q=0.9'), (b'pragma', b'no-cache')], http_version=b'1.1')
+
+b'GET http://github.com/markjandrews/yarsf2wav.git/info/refs?service=git-upload-pack HTTP/1.1\r\nHost: github.com\r\nUser-Agent: git/2.17.1\r\nAccept: */*\r\nAccept-Encoding: gzip\r\nProxy-Connection: Keep-Alive\r\nAccept-Language: C, *;q=0.9\r\nPragma: no-cache\r\n\r\n'
+Request(method=b'GET', target=b'http://github.com/markjandrews/yarsf2wav.git/info/refs?service=git-upload-pack', headers=[(b'host', b'github.com'), (b'user-agent', b'git/2.17.1'), (b'accept', b'*/*'), (b'accept-encoding', b'gzip'), (b'proxy-connection', b'Keep-Alive'), (b'accept-language', b'C, *;q=0.9'), (b'pragma', b'no-cache')], http_version=b'1.1')
+
+b'GET http://github.com:5544/markjandrews/yarsf2wav.git/info/refs?service=git-upload-pack HTTP/1.1\r\nHost: github.com:5544\r\nUser-Agent: git/2.17.1\r\nAccept: */*\r\nAccept-Encoding: gzip\r\nProxy-Connection: Keep-Alive\r\nAccept-Language: C, *;q=0.9\r\nPragma: no-cache\r\n\r\n'
+Request(method=b'GET', target=b'http://github.com:5544/markjandrews/yarsf2wav.git/info/refs?service=git-upload-pack', headers=[(b'host', b'github.com:5544'), (b'user-agent', b'git/2.17.1'), (b'accept', b'*/*'), (b'accept-encoding', b'gzip'), (b'proxy-connection', b'Keep-Alive'), (b'accept-language', b'C, *;q=0.9'), (b'pragma', b'no-cache')], http_version=b'1.1')
+
+
+Serving on ('0.0.0.0', 8000)
+IN: b'CONNECT github.com:443 HTTP/1.1\r\nHost: github.com:443\r\nUser-Agent: git/2.17.1\r\nProxy-Connection: Keep-Alive\r\n\r\n'
+OUT: b'HTTP/1.1 200 Connection Established\r\nserver: python-h11/0.9.0\r\n\r\n'
+IN: b'GET /golang/groupcache/info/refs?service=git-upload-pack HTTP/1.1\r\nHost: github.com\r\nUser-Agent: git/2.17.1\r\nAccept: */*\r\nAccept-Encoding: gzip\r\nAccept-Language: C, *;q=0.9\r\nPragma: no-cache\r\n\r\n'
+OUT: b'HTTP/1.1 200 OK\r\nserver: GitHub Babel 2.0\r\ncontent-type: application/x-git-upload-pack-advertisement\r\nexpires: Fri, 01 Jan 1980 00:00:00 GMT\r\npragma: no-cache\r\ncache-control: no-cache, max-age=0, must-revalidate\r\nvary: Accept-Encoding\r\nx-frame-options: DENY\r\nx-github-request-id: C9A1:6AF7:91450E:E10A53:5DBD64B7\r\ntransfer-encoding: chunked\r\n\r\n'
+...
+OUT: b'0\r\n\r\n'
+IN: b'POST /golang/groupcache/git-upload-pack HTTP/1.1\r\nHost: github.com\r\nUser-Agent: git/2.17.1\r\nAccept-Encoding: gzip\r\nContent-Type: application/x-git-upload-pack-request\r\nAccept: application/x-git-upload-pack-result\r\nContent-Length: 177\r\n\r\n00a4want 611e8accdfc92c4187d399e95ce826046d4c8d73 multi_ack_detailed no-done side-band-64k thin-pack no-progress ofs-delta deepen-since deepen-not agent=git/2.17.1\n00000009done\n'
+OUT: b'HTTP/1.1 200 OK\r\nserver: GitHub Babel 2.0\r\ncontent-type: application/x-git-upload-pack-result\r\nexpires: Fri, 01 Jan 1980 00:00:00 GMT\r\npragma: no-cache\r\ncache-control: no-cache, max-age=0, must-revalidate\r\nvary: Accept-Encoding\r\nx-frame-options: DENY\r\nx-github-request-id: C9A2:484C:953EA0:E829EB:5DBD64B7\r\ntransfer-encoding: chunked\r\n\r\n'
+...
+OUT: b'0\r\n\r\n'
+
+IN: b'GET /x/tools/internal/imports?go-get=1 HTTP/1.1\r\nHost: golang.org\r\nUser-Agent: Go-http-client/1.1\r\nAccept-Encoding: gzip\r\n\r\n'
+OUT: b'HTTP/1.1 200 OK\r\ndate: Sat, 02 Nov 2019 12:01:55 GMT\r\ncontent-type: text/html; charset=utf-8\r\nvary: Accept-Encoding\r\nvia: 1.1 google\r\nalt-svc: quic=":443"; ma=2592000; v="46,43",h3-Q049=":443"; ma=2592000,h3-Q048=":443"; ma=2592000,h3-Q046=":443"; ma=2592000,h3-Q043=":443"; ma=2592000\r\ntransfer-encoding: chunked\r\n\r\n'
+
+OUT: b'26e
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+        <meta name="go-import" content="golang.org/x/tools git https://go.googlesource.com/tools">
+        <meta name="go-source" content="golang.org/x/tools https://github.com/golang/tools/ https://github.com/golang/tools/tree/master{/dir} https://github.com/golang/tools/blob/master{/dir}/{file}#L{line}">
+        <meta http-equiv="refresh" content="0; url=https://godoc.org/golang.org/x/tools/internal/imports">
+    </head>
+    <body>
+    Nothing to see here; <a href="https://godoc.org/golang.org/x/tools/internal/imports">move along</a>.
+    </body>
+</html>
+
+'
