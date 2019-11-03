@@ -1,4 +1,5 @@
-from urllib.parse import ParseResult, urlparse
+import typing
+from urllib.parse import urlsplit, urlunsplit
 
 import h11
 import requests
@@ -6,29 +7,78 @@ from requests.structures import CaseInsensitiveDict
 
 
 class ProxyRequest(object):
-    def __init__(self):
-        self.conn: h11.Connection = h11.Connection(h11.SERVER)
-        self.proxies = {}
+
+    def __init__(self, event: (h11.Request, requests.Response), conn: h11.Connection):
+        self._event = event
+        self.headers: CaseInsensitiveDict = CaseInsensitiveDict()
+        self.data = None
+
+        self.proxies: typing.Dict = {}
+        self.method = None
         self.scheme = None
         self.host = None
         self.port = None
+        self.path = None
 
-    def get_url(self, event: h11.Request):
-        path = event.target
-        url: ParseResult = urlparse(path)
+        self.status = None
+        self.reason = None
 
-        if not url.scheme:
-            url = url._replace(scheme=self.scheme.encode())
+        if isinstance(event, h11.Request):
+            self.method = event.method.decode()
+
+            self.headers.update({k.decode(): v for k, v in event.headers})
+
+            if 'content-length' in self.headers:
+                data_event = conn.next_event()
+                assert isinstance(data_event, h11.Data)
+                self.data = data_event.data
+            else:
+                self.data = None
+
+            self.url = self._event.target.decode()
+
+        elif isinstance(event, requests.Response):
+            self.headers.update(event.headers)
+            self.status = event.status_code
+            self.reason = event.reason
+            self.data = event.content
+        else:
+            raise NotImplementedError
+
+    @property
+    def url(self):
+        if self.port:
+            host = '{}:{}'.format(self.host, self.port)
+        else:
+            host = self.host
+
+        url = urlunsplit((self.scheme, host, self.path or '', None, None))
+        return url
+
+    @url.setter
+    def url(self, value):
+        url = urlsplit(value, scheme='https', allow_fragments=False)
 
         if not url.netloc:
-            url = url._replace(netloc=b'%s:%s' % (self.host, self.port))
+            host, *port = self.headers['host'].split(b':')
+            host = host.decode()
+        else:
+            host, *port = url.netloc.split(':')
 
-        return url.geturl()
+        self.scheme = url.scheme
+        self.host = host
+        if port:
+            self.port = int(port[0])
 
-    def get_h11_headers(self, event: h11.Request):
-        headers = CaseInsensitiveDict({k: v for k, v in event.headers})
-        return headers
+        evt_host = self.headers['host'].decode()
+        if url.path != evt_host:
+            self.path = url.path
+            if url.query:
+                self.path += '?' + url.query
+            if url.fragment:
+                self.path += '#' + url.fragment
 
-    def get_requests_headers(self, response: requests.Response):
-        headers = [(k, v) for k, v in response.headers.items()]
+    @property
+    def h11_headers(self):
+        headers = [(k, v) for k, v in self.headers.items()]
         return headers

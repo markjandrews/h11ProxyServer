@@ -1,8 +1,12 @@
+import argparse
 import asyncio
+import gzip
 import logging
 import ssl
-from asyncio import transports
+import sys
+from asyncio import transports, AbstractEventLoop
 from http import HTTPStatus
+from typing import Optional, Tuple
 
 import h11
 import requests
@@ -43,14 +47,20 @@ class ProxyServerProtocol(asyncio.Protocol):
     error_message_format = DEFAULT_ERROR_MESSAGE
     error_content_type = DEFAULT_ERROR_CONTENT_TYPE
 
-    def __init__(self, loop, req: ProxyRequest = None):
+    def __init__(self, loop: AbstractEventLoop, key: str = None,
+                 cert: str = None):
+        self.loop: AbstractEventLoop = loop
+        self.transport: Optional[transports.BaseTransport] = None
+        self.proxy_connection: Optional[Tuple[str, int]] = None
+        self.conn: h11.Connection = h11.Connection(h11.SERVER)
+
+        self.ssl_proto: Optional[asyncio.sslproto.SSLProto] = None
+        self.ssl_ctx: Optional[ssl.SSLContext] = None
+        self.key: str = key
+        self.cert: str = cert
+
         self.log: logging.Logger = logging.getLogger(__name__)
         self.log.setLevel(DEFAULT_LOG_LEVEL)
-        self.loop = loop
-        self.req = req if req else ProxyRequest()
-        self.transport = None
-        self.ssl_ctx = None
-        self.ssl_proto: asyncio.sslproto.SSLProto = None
 
     def connection_made(self, transport: transports.BaseTransport) -> None:
         self.transport = transport
@@ -59,64 +69,81 @@ class ProxyServerProtocol(asyncio.Protocol):
         if self.ssl_proto:
             self.ssl_proto.data_received(data)
         else:
-            print('IN: {}'.format(data))
-            self.req.conn.receive_data(data)
+            # print('IN: {}'.format(data))
+            self.conn.receive_data(data)
             while True:
-                event = self.req.conn.next_event()
+                event = self.conn.next_event()
                 if isinstance(event, h11.Request):
                     if event.method == b'CONNECT':
                         self.do_CONNECT(event)
                     else:
                         self.do_VERB(event)
                 elif event is h11.PAUSED:
-                    self.req.conn.start_next_cycle()
+                    self.conn.start_next_cycle()
                     continue
                 elif isinstance(event, h11.ConnectionClosed) or event is h11.NEED_DATA:
                     break
-            if self.req.conn.our_state is h11.MUST_CLOSE:
+            if self.conn.our_state is h11.MUST_CLOSE:
                 self.transport.close()
 
     def do_CONNECT(self, event: h11.Request):
-        self.req.host, self.req.port = event.target.split(b':')
-        self.req.scheme = 'https'
+        req = ProxyRequest(event, self.conn)
 
         self.ssl_ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-        self.ssl_ctx.load_cert_chain('proxy.crt', 'proxy.key')
+        self.ssl_ctx.load_cert_chain(self.cert, self.key)
 
-        self.ssl_proto = asyncio.sslproto.SSLProtocol(self.loop, ProxyServerProtocol(self.loop, self.req), self.ssl_ctx,
+        self.ssl_proto = asyncio.sslproto.SSLProtocol(self.loop, ProxyServerProtocol(self.loop),
+                                                      self.ssl_ctx,
                                                       None,
                                                       server_side=True)
 
         self.ssl_proto.connection_made(self.transport)
+        self.proxy_connection = (req.host, req.port)
+        print('{} {}'.format(event.method.decode(), req.url), end='')
 
         response = h11.Response(status_code=HTTPStatus.OK, reason='Connection Established',
                                 headers=[('Server', h11.PRODUCT_ID)])
+
+        print(' - {} {}'.format(response.status_code, response.reason.decode()))
+
         self.send(response)
-        self.req.conn = h11.Connection(h11.SERVER)
+        self.conn = h11.Connection(h11.SERVER)
 
     def do_VERB(self, event: h11.Request):
 
-        url = self.req.get_url(event)
-        headers = self.req.get_h11_headers(event)
+        try:
+            req = ProxyRequest(event, self.conn)
+            url = req.url
+            headers = req.headers
+            print('{} {}'.format(req.method, url), end='')
+            sys.stdout.flush()
 
-        if b'content-length' in headers:
-            data_event = self.req.conn.next_event()
-            assert isinstance(data_event, h11.Data)
-            data = data_event.data
-        else:
-            data = None
+            req_resp = requests.request(event.method, url, proxies=req.proxies, headers=headers,
+                                        data=req.data)
 
-        resp = requests.request(event.method, url, proxies=self.req.proxies, headers=headers, data=data)
-        # self.log.info('{} {} - {}'.format(resp.status_code, resp.reason, url.decode()))
+            resp = ProxyRequest(req_resp, self.conn)
+            print(' - {} {}'.format(resp.status, resp.reason))
 
-        if 'content-encoding' in resp.headers:
-            del resp.headers['content-encoding']
+            # self.log.info('{} {} - {}'.format(resp.status_code, resp.reason, url.decode()))
 
-        headers = self.req.get_requests_headers(resp)
-        h11_resp = h11.Response(status_code=resp.status_code, reason=resp.reason, headers=headers)
-        self.send(h11_resp)
-        self.send(h11.Data(data=resp.content))
-        self.send(h11.EndOfMessage())
+            headers = resp.headers
+            content_encoding = headers.get('content-encoding', None)
+            if content_encoding:
+                if content_encoding == 'gzip':
+                    resp.data = gzip.compress(resp.data)
+                else:
+                    self.log.warning('Unandled content-encoding {}'.format(content_encoding))
+                    del headers['content-encoding']
+
+            h11_resp = h11.Response(status_code=resp.status, reason=resp.reason,
+                                    headers=resp.h11_headers)
+            self.send(h11_resp)
+            self.send(h11.Data(data=resp.data))
+            self.send(h11.EndOfMessage())
+        except Exception as e:
+            self.log.error(repr(e))
+            self.send_error(event, HTTPStatus.INTERNAL_SERVER_ERROR, explain=str(e))
+            raise
 
     def send_error(self, event: h11.Request, status: HTTPStatus, msg: str = None, explain: str = None):
         try:
@@ -152,17 +179,25 @@ class ProxyServerProtocol(asyncio.Protocol):
         self.send(h11.EndOfMessage())
 
     def send(self, event):
-        data = self.req.conn.send(event)
-        print('OUT: {}'.format(data))
+        data = self.conn.send(event)
+        # print('OUT: {}'.format(data))
         self.transport.write(data)
 
 
 def main(argv=None):
+    parser = argparse.ArgumentParser(description='Proxy Server using h11')
+    parser.add_argument('-c', '--cert', default='proxy.crt')
+    parser.add_argument('-k', '--key', default='proxy.key')
+
+    args = parser.parse_args(argv)
+
     loop = asyncio.get_event_loop()
-    coro = loop.create_server(lambda: ProxyServerProtocol(loop), '0.0.0.0', 8000)
+    coro = loop.create_server(lambda: ProxyServerProtocol(loop, key=args.key, cert=args.cert), '0.0.0.0', 8000)
     server = loop.run_until_complete(coro)
 
     print('Serving on {}'.format(server.sockets[0].getsockname()))
+    print('Cert: {} Key: {}'.format(args.cert, args.key))
+
     try:
         loop.run_forever()
     except KeyboardInterrupt:
