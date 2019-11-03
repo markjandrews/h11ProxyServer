@@ -3,6 +3,12 @@ venv\Scripts\activate
 py -m pip install pip --upgrade
 py -m pip install --upgrade --no-index -r requirements.txt -f vendor
 
+git config --global -e
++
+[http]
+        proxy = http://192.168.1.226:8000
+        sslVerify = false
+
 Certificate
 -----------
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout proxy.key -out proxy.crt
@@ -10,7 +16,8 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout proxy.key -out proxy
 Testing
 -------
 curl 192.168.1.226:8000
-curl -x 192.168.1.226:8000 https://github.com -vvvvv
+curl --compress -vvvvv -x 192.168.1.226:8000 https://github.com --output -
+curl --compress -vvvvv -x 192.168.1.226:8000 http://github.com --output -
 
 http_proxy=192.168.1.226:8000 go get -v -u -insecure github.com/golang/groupcache/lru
 http_proxy=192.168.1.226:8000 go get -v -u -insecure golang.org/x/tools/imports

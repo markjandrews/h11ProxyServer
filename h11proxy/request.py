@@ -1,3 +1,4 @@
+import gzip
 import typing
 from urllib.parse import urlsplit, urlunsplit
 
@@ -25,7 +26,6 @@ class ProxyRequest(object):
 
         if isinstance(event, h11.Request):
             self.method = event.method.decode()
-
             self.headers.update({k.decode(): v for k, v in event.headers})
 
             if 'content-length' in self.headers:

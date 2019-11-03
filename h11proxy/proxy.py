@@ -135,6 +135,9 @@ class ProxyServerProtocol(asyncio.Protocol):
                     self.log.warning('Unandled content-encoding {}'.format(content_encoding))
                     del headers['content-encoding']
 
+                # content-length may now be wrong so it has to be updated
+                headers['content-length'] = str(len(resp.data)).encode()
+
             h11_resp = h11.Response(status_code=resp.status, reason=resp.reason,
                                     headers=resp.h11_headers)
             self.send(h11_resp)
